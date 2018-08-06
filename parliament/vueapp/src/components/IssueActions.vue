@@ -1,21 +1,11 @@
 <template>
 
   <div>
-    <!-- dismiss issue button -->
-    <button v-if="!issue.dismissed"
-      type="button"
-      class="btn btn-outline-danger btn-xs pull-right cursor-pointer ml-1"
-      v-b-tooltip.hover.bottom-right
-      title="Dismiss this issue for 24 hours"
-      @click="dismissIssue">
-      <span class="fa fa-check fa-fw">
-      </span>
-    </button> <!-- /dismiss issue button -->
     <!-- (un)ignore until dropdown -->
     <b-dropdown right
       size="sm"
-      class="dropdown-btn-xs"
-      variant="outline-secondary">
+      class="dropdown-btn-xs pull-right ml-1"
+      variant="outline-dark">
       <template slot="button-content">
         <span v-if="!issue.ignoreUntil"
           class="fa fa-eye fa-fw">
@@ -55,6 +45,15 @@
         Ignore forever
       </b-dropdown-item>
     </b-dropdown> <!-- /(un)ignore until dropdown -->
+    <!-- acknowledge issue button -->
+    <button v-if="!issue.acknowledged"
+      class="btn btn-outline-success btn-xs pull-right cursor-pointer"
+      v-b-tooltip.hover.bottom-right
+      title="Acknowledge this issue and silence it for an hour"
+      @click="acknowledgeIssue">
+      <span class="fa fa-check fa-fw">
+      </span>
+    </button> <!-- /acknowledge issue button -->
   </div>
 
 </template>
@@ -84,16 +83,16 @@ export default {
   },
   methods: {
     /* page functions -------------------------------------------------------- */
-    /* Sends a request to dismiss an issue
+    /* Sends a request to acknowledge an issue
      * If succesful, updates the issue in the view, otherwise displays error */
-    dismissIssue: function () {
-      ParliamentService.dismissIssue(this.groupId, this.clusterId, this.issue)
+    acknowledgeIssue: function () {
+      ParliamentService.acknowledgeIssue(this.groupId, this.clusterId, this.issue)
         .then((data) => {
-          this.issue.dismissed = data.dismissed;
-          this.updateIssue(true, 'Issue dismissed', this.issue);
+          this.issue.acknowledged = data.acknowledged;
+          this.updateIssue(true, 'Issue acknowledged', this.issue);
         })
         .catch((error) => {
-          this.updateIssue(false, error.text || 'Unable to dismiss this issue');
+          this.updateIssue(false, error.text || 'Unable to acknowledge this issue');
         });
     },
     /**

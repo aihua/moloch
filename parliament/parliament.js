@@ -34,7 +34,8 @@ const issueTypes = {
 const settingsDefault = {
   general : {
     outOfDate: 30,
-    esQueryTimeout: 5
+    esQueryTimeout: 5,
+    removeIssuesAfter: 60
   },
   notifiers: {}
 };
@@ -362,7 +363,7 @@ function setIssue (cluster, newIssue) {
 
       issue.lastNoticed = Date.now();
 
-      if (!issue.dismissed && !issue.ignoreUntil && !issue.alerted) {
+      if (!issue.acknowledged && !issue.ignoreUntil && !issue.alerted) {
         issueAlert(cluster, issue);
       }
     }
@@ -551,6 +552,15 @@ function initializeParliament () {
     if (!parliament.settings.general) {
       parliament.settings.general = settingsDefault.general;
     }
+    if (!parliament.settings.general.outOfDate) {
+      parliament.settings.general.outOfDate = settingsDefault.general.outOfDate;
+    }
+    if (!parliament.settings.general.esQueryTimeout) {
+      parliament.settings.general.esQueryTimeout = settingsDefault.general.esQueryTimeout;
+    }
+    if (!parliament.settings.general.removeIssuesAfter) {
+      parliament.settings.general.removeIssuesAfter = settingsDefault.general.removeIssuesAfter;
+    }
 
     // build notifiers
     for (let n in internals.notifiers) {
@@ -609,14 +619,7 @@ function updateParliament () {
       }
     }
 
-    // remove dismissed issues that have not been seen again for 1 day
-    let issuesRemoved = false;
-    for (const [issue, index] of issues.entries()) {
-      if (issue.dismissed && (Date.now() - issue.lastNoticed > 86400000)) {
-        issuesRemoved = true;
-        issues.splice(index, 1);
-      }
-    }
+    let issuesRemoved = cleanUpIssues();
 
     Promise.all(promises)
       .then(() => {
@@ -646,6 +649,29 @@ function updateParliament () {
         return resolve();
       });
   });
+}
+
+function cleanUpIssues () {
+  let issuesRemoved = false;
+
+  let len = issues.length;
+  while (len--) {
+    const issue = issues[len];
+    // remove all issues that have not been seen again for the set time
+    const removeIssuesAfter = getGeneralSetting('removeIssuesAfter') * 1000 * 60;
+    if ((Date.now() - issue.lastNoticed) > removeIssuesAfter) {
+      issuesRemoved = true;
+      issues.splice(len, 1);
+    }
+    // if the issue was acknowledged an hour ago (3600000 ms) but still persists,
+    // unacknowledge and alert again
+    if ((Date.now() - issue.acknowledged) > 3600000) {
+      issue.alerted = undefined;
+      issue.acknowledged = undefined;
+    }
+  }
+
+  return issuesRemoved;
 }
 
 function getGeneralSetting (type) {
@@ -874,7 +900,7 @@ router.get('/parliament', (req, res, next) => {
       cluster.activeIssues = [];
       for (let issue of issues) {
         if (issue.clusterId === cluster.id &&
-          !issue.dismissed && !issue.ignoreUntil) {
+          !issue.acknowledged && !issue.ignoreUntil) {
           cluster.activeIssues.push(issue);
         }
       }
@@ -1117,7 +1143,10 @@ router.get('/issues', (req, res, next) => {
 
   let type = 'string';
   let sortBy = req.query.sort;
-  if (sortBy === 'ignoreUntil' || sortBy === 'firstNoticed' || sortBy === 'lastNoticed') {
+  if (sortBy === 'ignoreUntil' ||
+    sortBy === 'firstNoticed' ||
+    sortBy === 'lastNoticed' ||
+    sortBy === 'acknowledged') {
     type = 'number';
   }
 
@@ -1147,10 +1176,10 @@ router.get('/issues', (req, res, next) => {
   return res.json({ issues: issuesClone });
 });
 
-// Dismiss an issue with a cluster
-router.put('/groups/:groupId/clusters/:clusterId/dismissIssue', verifyToken, (req, res, next) => {
+// Acknowledge an issue with a cluster
+router.put('/groups/:groupId/clusters/:clusterId/acknowledgeIssue', verifyToken, (req, res, next) => {
   if (!req.body.type) {
-    let message = 'Must specify the issue type to dismiss.';
+    let message = 'Must specify the issue type to acknowledge.';
     const error = new Error(message);
     error.httpStatusCode = 422;
     return next(error);
@@ -1161,15 +1190,15 @@ router.put('/groups/:groupId/clusters/:clusterId/dismissIssue', verifyToken, (re
   let issue = findIssue(parseInt(req.params.clusterId), req.body.type, req.body.node);
 
   if (!issue) {
-    const error = new Error('Unable to find issue to dismiss.');
+    const error = new Error('Unable to find issue to acknowledge.');
     error.httpStatusCode = 500;
     return next(error);
   }
 
-  issue.dismissed = now;
+  issue.acknowledged = now;
 
-  let successObj  = { success:true, text:'Successfully dismissed the requested issue.', dismissed:now };
-  let errorText   = 'Unable to dismiss that issue.';
+  let successObj  = { success:true, text:'Successfully acknowledged the requested issue.', acknowledged:now };
+  let errorText   = 'Unable to acknowledge that issue.';
   writeParliament(req, res, next, successObj, errorText);
 });
 
@@ -1227,26 +1256,26 @@ router.put('/groups/:groupId/clusters/:clusterId/removeIgnoreIssue', verifyToken
   writeParliament(req, res, next, successObj, errorText);
 });
 
-// Dismiss all issues with a cluster
-router.put('/groups/:groupId/clusters/:clusterId/dismissAllIssues', verifyToken, (req, res, next) => {
+// Acknowledge all issues with a cluster
+router.put('/groups/:groupId/clusters/:clusterId/acknowledgeAllIssues', verifyToken, (req, res, next) => {
   let now   = Date.now();
   let count = 0;
 
   for (let issue of issues) {
-    if (issue.clusterId === parseInt(req.params.clusterId)) {
-      issue.dismissed = now;
+    if (issue.clusterId === parseInt(req.params.clusterId) && !issue.acknowledged) {
+      issue.acknowledged = now;
       count++;
     }
   }
 
   if (!count) {
-    const error = new Error('There are no issues in this cluster to dimiss.');
+    const error = new Error('There are no issues in this cluster to acknowledge.');
     error.httpStatusCode = 400;
     return next(error);
   }
 
-  let successObj  = { success:true, text:`Successfully dismissed ${count} issues.`, dismissed:now };
-  let errorText   = 'Unable to dismiss issues.';
+  let successObj  = { success:true, text:`Successfully acknowledged ${count} issues.`, acknowledged:now };
+  let errorText   = 'Unable to acknowledge issues.';
   writeParliament(req, res, next, successObj, errorText);
 });
 

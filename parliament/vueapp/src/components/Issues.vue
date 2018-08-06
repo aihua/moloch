@@ -106,6 +106,20 @@
               class="fa fa-sort-desc fa-fw">
             </span>
           </th>
+          <th scope="col"
+            class="cursor-pointer"
+            @click="sortBy('acknowledged')">
+            Acknowledged At
+            <span v-if="query.sort !== 'acknowledged'"
+              class="fa fa-sort fa-fw">
+            </span>
+            <span v-if="query.sort === 'acknowledged' && query.order === 'asc'"
+              class="fa fa-sort-asc fa-fw">
+            </span>
+            <span v-if="query.sort === 'acknowledged' && query.order === 'desc'"
+              class="fa fa-sort-desc fa-fw">
+            </span>
+          </th>
           <th scope="col" width="100px" v-if="loggedIn">
             &nbsp;
           </th>
@@ -113,8 +127,7 @@
       </thead>
       <tbody>
         <template v-for="issue of issues">
-          <tr v-if="!issue.dismissed"
-            :key="getIssueTrackingId(issue)"
+          <tr :key="getIssueTrackingId(issue)"
             :class="getIssueRowClass(issue)">
             <td>
               {{ issue.cluster }}
@@ -140,6 +153,11 @@
               </span>
               <span v-if="issue.ignoreUntil === -1">
                 Forever
+              </span>
+            </td>
+            <td>
+              <span v-if="issue.acknowledged">
+                {{ issue.acknowledged | moment('YYYY/MM/DD HH:mm:ss') }}
               </span>
             </td>
             <td v-if="loggedIn">
@@ -256,7 +274,7 @@ export default {
       return id;
     },
     getIssueRowClass: function (issue) {
-      if (issue.ignoreUntil) {
+      if (issue.ignoreUntil || issue.acknowledged) {
         return 'table-secondary text-muted';
       } else if (issue.severity === 'red') {
         return 'table-danger';

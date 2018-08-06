@@ -109,9 +109,9 @@ export default {
     });
   },
 
-  dismissIssue: function (groupId, clusterId, issue) {
+  acknowledgeIssue: function (groupId, clusterId, issue) {
     return new Promise((resolve, reject) => {
-      Vue.axios.put(`api/groups/${groupId}/clusters/${clusterId}/dismissIssue`, {
+      Vue.axios.put(`api/groups/${groupId}/clusters/${clusterId}/acknowledgeIssue`, {
         type: issue.type,
         node: issue.node
       })
@@ -155,9 +155,9 @@ export default {
     });
   },
 
-  dismissAllIssues: function (groupId, clusterId) {
+  acknowledgeAllIssues: function (groupId, clusterId) {
     return new Promise((resolve, reject) => {
-      Vue.axios.put(`api/groups/${groupId}/clusters/${clusterId}/dismissAllIssues`, {})
+      Vue.axios.put(`api/groups/${groupId}/clusters/${clusterId}/acknowledgeAllIssues`, {})
         .then((response) => {
           resolve(response.data);
         })

@@ -123,6 +123,27 @@
               issue if no response is received within the specified time.
             </p>
           </div>
+          <div class="col-lg-9 col-md-12 form-group">
+            <label for="esQueryTimeout">
+              Remove issues after
+            </label>
+            <div class="input-group">
+              <input type="number"
+                class="form-control"
+                id="removeIssuesAfter"
+                @input="debounceInput"
+                v-model="settings.general.removeIssuesAfter"
+              />
+              <span class="input-group-append">
+                <span class="input-group-text">
+                  minutes
+                </span>
+              </span>
+            </div>
+            <p class="form-text small text-muted">
+              Removes issues that have not been seen again after the specified time.
+            </p>
+          </div>
         </div>
       </div>
       <!-- /general -->
