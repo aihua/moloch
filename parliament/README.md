@@ -108,7 +108,46 @@ Before submitting a pull request with your contribution, please run `npm run lin
 {                   // parliament object
   version: x,       // version (number)
   password: 'hash', // hashed password
-  groups: [ ... ]   // list of groups in the parliament
+  groups: [ ... ],  // list of groups in the parliament
+  settings: {       // parliament settings
+    general: {      // general settings
+
+      // capture nodes need to check in at least this often (number of seconds)
+      // if a capture node has not checked in, an Out Of Date issue will be added to the node's cluster
+      outOfDate: 30,
+
+      // Elasticsearch query timeout (number of seconds)
+      // Aborts the queries and adds an ES Down issue if no response is received
+      esQueryTimeout: 5,
+
+      // Remove all issues after (number of minutes)
+      // Removes issues that have not been seen again after the specified time
+      removeIssuesAfter: 60,
+
+      // Remove acknowledged issues after (number of minutes)
+      // Removes acknowledged issues that have not been seen again after the specified time
+      removeAcknowledgedAfter: 15
+
+    },
+    notifiers: {    // notifiers (defined in parliament/notifiers/provider.notifme.js)
+      notifierX: {  // notifier (object)
+
+        // name of the notifier displayed in the UI (string)
+        name: 'slack',
+
+        // turns on/off this notifier (boolean)
+        on: false,
+
+        // fields necessary to notify via this notifier (object)
+        // (defined in parliament/notifiers/provider.notifme.js)
+        fields: {},
+
+        // which issues to alert on via this notifier (object)
+        alerts: {}
+
+      }
+    }
+  }
 }
 ```
 **Note:** The password is hashed using [bcrypt][bcrypt].
@@ -163,7 +202,7 @@ Before submitting a pull request with your contribution, please run `npm run lin
 ```javascript
 { // issue object
 
-  // the type of issue: esDown, esRed, esDropped, outOfDate, or noPackets (string, *required)
+  // the type of issue: esDown, esRed, esDropped, outOfDate, or noPackets (string)
   type: 'esDown',
 
   // the specific error encountered (string)
