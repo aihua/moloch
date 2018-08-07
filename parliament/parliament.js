@@ -35,7 +35,8 @@ const settingsDefault = {
   general : {
     outOfDate: 30,
     esQueryTimeout: 5,
-    removeIssuesAfter: 60
+    removeIssuesAfter: 60,
+    removeAcknowledgedAfter: 15
   },
   notifiers: {}
 };
@@ -561,6 +562,9 @@ function initializeParliament () {
     if (!parliament.settings.general.removeIssuesAfter) {
       parliament.settings.general.removeIssuesAfter = settingsDefault.general.removeIssuesAfter;
     }
+    if (!parliament.settings.general.removeAcknowledgedAfter) {
+      parliament.settings.general.removeAcknowledgedAfter = settingsDefault.general.removeAcknowledgedAfter;
+    }
 
     // build notifiers
     for (let n in internals.notifiers) {
@@ -657,15 +661,20 @@ function cleanUpIssues () {
   let len = issues.length;
   while (len--) {
     const issue = issues[len];
-    // remove all issues that have not been seen again for the set time
+    const timeSinceLastNoticed = Date.now() - issue.lastNoticed;
     const removeIssuesAfter = getGeneralSetting('removeIssuesAfter') * 1000 * 60;
-    if ((Date.now() - issue.lastNoticed) > removeIssuesAfter) {
+    const removeAcknowledgedAfter = getGeneralSetting('removeAcknowledgedAfter') * 1000 * 60;
+
+    // remove all issues that have not been seen again for the removeIssuesAfter time, and
+    // remove all acknowledged issues that have not been seen again for the removeAcknowledgedAfter time
+    if ((!issue.acknowledged && timeSinceLastNoticed > removeIssuesAfter) ||
+        (issue.acknowledged && timeSinceLastNoticed > removeAcknowledgedAfter)) {
       issuesRemoved = true;
       issues.splice(len, 1);
     }
-    // if the issue was acknowledged an hour ago (3600000 ms) but still persists,
-    // unacknowledge and alert again
-    if ((Date.now() - issue.acknowledged) > 3600000) {
+
+    // if the issue was acknowledged but still persists, unacknowledge and alert again
+    if (issue.acknowledged && (Date.now() - issue.acknowledged) > removeAcknowledgedAfter) {
       issue.alerted = undefined;
       issue.acknowledged = undefined;
     }
@@ -708,6 +717,28 @@ function writeParliament (req, res, next, successObj, errorText, sendParliament)
           error.httpStatusCode = 500;
           return next(error);
         });
+    }
+  );
+}
+
+// Writes the issues to the issues json file then sends success or error
+function writeIssues (req, res, next, successObj, errorText, sendIssues) {
+  fs.writeFile(app.get('issuesfile'), JSON.stringify(issues, null, 2), 'utf8',
+    (err) => {
+      if (err) {
+        const errorMsg = `Unable to write issue data: ${err.message || err}`;
+        console.error(errorMsg);
+        const error = new Error(errorMsg);
+        error.httpStatusCode = 500;
+        return next(error);
+      }
+
+      // send the updated issues with the response
+      if (sendIssues && successObj.issues) {
+        successObj.issues = issues;
+      }
+
+      return res.json(successObj);
     }
   );
 }
@@ -1199,7 +1230,63 @@ router.put('/groups/:groupId/clusters/:clusterId/acknowledgeIssue', verifyToken,
 
   let successObj  = { success:true, text:'Successfully acknowledged the requested issue.', acknowledged:now };
   let errorText   = 'Unable to acknowledge that issue.';
-  writeParliament(req, res, next, successObj, errorText);
+  writeIssues(req, res, next, successObj, errorText);
+});
+
+// Remove an issue with a cluster
+router.put('/groups/:groupId/clusters/:clusterId/removeIssue', verifyToken, (req, res, next) => {
+  if (!req.body.type) {
+    let message = 'Must specify the issue type to remove.';
+    const error = new Error(message);
+    error.httpStatusCode = 422;
+    return next(error);
+  }
+
+  let foundIssue = false;
+  let len = issues.length;
+  while (len--) {
+    const issue = issues[len];
+    if (issue.clusterId === parseInt(req.params.clusterId) &&
+      issue.type === req.body.type &&
+      issue.node === req.body.node) {
+      foundIssue = true;
+      issues.splice(len, 1);
+    }
+  }
+
+  if (!foundIssue) {
+    const error = new Error('Unable to find issue to remove. Maybe it was already removed.');
+    error.httpStatusCode = 500;
+    return next(error);
+  }
+
+  let successObj  = { success:true, text:'Successfully removed the requested issue.' };
+  let errorText   = 'Unable to remove that issue.';
+  writeIssues(req, res, next, successObj, errorText);
+});
+
+// Remove all acknowledged all issues
+router.put('/issues/removeAllAcknowledgedIssues', verifyToken, (req, res, next) => {
+  let count = 0;
+
+  let len = issues.length;
+  while (len--) {
+    const issue = issues[len];
+    if (issue.acknowledged) {
+      count++;
+      issues.splice(len, 1);
+    }
+  }
+
+  if (!count) {
+    const error = new Error('There are no acknowledged issues to remove.');
+    error.httpStatusCode = 400;
+    return next(error);
+  }
+
+  let successObj  = { success:true, text:`Successfully removed ${count} acknowledged issues.`, issues:issues };
+  let errorText   = 'Unable to remove acknowledged issues.';
+  writeIssues(req, res, next, successObj, errorText, true);
 });
 
 // Ignore an issue with a cluster
@@ -1228,7 +1315,7 @@ router.put('/groups/:groupId/clusters/:clusterId/ignoreIssue', verifyToken, (req
 
   let successObj  = { success:true, text:'Successfully ignored the requested issue.', ignoreUntil:ignoreUntil };
   let errorText   = 'Unable to ignore that issue.';
-  writeParliament(req, res, next, successObj, errorText);
+  writeIssues(req, res, next, successObj, errorText);
 });
 
 // Allow an issue with a cluster to alert by removing ignoreUntil
@@ -1253,7 +1340,7 @@ router.put('/groups/:groupId/clusters/:clusterId/removeIgnoreIssue', verifyToken
 
   let successObj  = { success:true, text:'Successfully removed the ignore for the requested issue.' };
   let errorText   = 'Unable to remove the ignore for that issue.';
-  writeParliament(req, res, next, successObj, errorText);
+  writeIssues(req, res, next, successObj, errorText);
 });
 
 // Acknowledge all issues with a cluster
@@ -1276,7 +1363,7 @@ router.put('/groups/:groupId/clusters/:clusterId/acknowledgeAllIssues', verifyTo
 
   let successObj  = { success:true, text:`Successfully acknowledged ${count} issues.`, acknowledged:now };
   let errorText   = 'Unable to acknowledge issues.';
-  writeParliament(req, res, next, successObj, errorText);
+  writeIssues(req, res, next, successObj, errorText);
 });
 
 // issue a test alert to a specified notifier

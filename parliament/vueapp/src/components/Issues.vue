@@ -121,7 +121,13 @@
             </span>
           </th>
           <th scope="col" width="100px" v-if="loggedIn">
-            &nbsp;
+            <button class="btn btn-outline-primary btn-xs pull-right cursor-pointer"
+              v-b-tooltip.hover.bottom-right
+              title="Remove all acknowledged issues"
+              @click="removeAllAcknowledgedIssues">
+              <span class="fa fa-trash fa-fw">
+              </span>
+            </button>
           </th>
         </tr>
       </thead>
@@ -283,6 +289,16 @@ export default {
       }
 
       return '';
+    },
+    removeAllAcknowledgedIssues: function () {
+      ParliamentService.removeAllAcknowledgedIssues()
+        .then((data) => {
+          this.error = '';
+          this.issues = data.issues;
+        })
+        .catch((error) => {
+          this.error = error.text || 'Error removing all acknowledged issues.';
+        });
     },
     /* helper functions ---------------------------------------------------- */
     loadData: function () {

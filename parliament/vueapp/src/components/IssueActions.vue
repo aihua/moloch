@@ -54,6 +54,15 @@
       <span class="fa fa-check fa-fw">
       </span>
     </button> <!-- /acknowledge issue button -->
+    <!-- remove issue button -->
+    <button v-if="issue.acknowledged"
+      class="btn btn-outline-primary btn-xs pull-right cursor-pointer"
+      v-b-tooltip.hover.bottom-right
+      title="Issue fixed! Remove it."
+      @click="removeIssue">
+      <span class="fa fa-trash fa-fw">
+      </span>
+    </button> <!-- /remove issue button -->
   </div>
 
 </template>
@@ -93,6 +102,19 @@ export default {
         })
         .catch((error) => {
           this.updateIssue(false, error.text || 'Unable to acknowledge this issue');
+        });
+    },
+    /* Sends a request to remove an issue
+     * If succesful, removes the issue from the view, otherwise displays error */
+    removeIssue: function () {
+      ParliamentService.removeIssue(this.groupId, this.clusterId, this.issue)
+        .then((data) => {
+          // TODO remove the issue
+          this.issue = undefined;
+          this.updateIssue(true, 'Issue removed', this.issue);
+        })
+        .catch((error) => {
+          this.updateIssue(false, error.text || 'Unable to remove this issue');
         });
     },
     /**
