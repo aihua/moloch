@@ -76,7 +76,8 @@
           General
         </h3>
         <hr>
-        <div class="row">
+        <div class="row"
+          v-if="settings.general">
           <div class="col-lg-9 col-md-12 form-group">
             <label for="outOfDate">
               Capture nodes need to check in at least this often
@@ -252,7 +253,8 @@
           Notifiers
         </h3>
         <hr>
-        <div class="row">
+        <div class="row"
+          v-if="settings.notifiers">
           <div class="col-12 col-xl-6"
             v-for="notifier of settings.notifiers"
             :key="notifier.name">
