@@ -101,7 +101,7 @@ Before submitting a pull request with your contribution, please run `npm run lin
 `parliament.json` (or whatever you pass into the -c config option when starting Parliament) is the file that describes your parliament. You can create this by hand or use the Parliament UI to create, edit, and delete groups and clusters. View the supplied `parliament.example.json` to view an example parliament configuration.
 
 ### Issues
-`parlaiment.issues.json` will be created to store issues pertaining to the clusters in your parliament.
+`parliament.issues.json` will be created to store issues pertaining to the clusters in your parliament.
 
 ##### Parliament model:
 ```javascript
