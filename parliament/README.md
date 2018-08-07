@@ -159,6 +159,49 @@ Before submitting a pull request with your contribution, please run `npm run lin
 
 }
 ```
+##### Issue model:
+```javascript
+{ // issue object
+
+  // the type of issue: esDown, esRed, esDropped, outOfDate, or noPackets (string, *required)
+  type: 'esDown',
+
+  // the specific error encountered (string)
+  value: 'Error: Issue Error',
+
+  // human readable text to describe the type of issue (string)
+  text: 'ES is down',
+
+  // human readable title to be displayed in the UI instead of type (string)
+  title: 'ES Down',
+
+  // how severe the issue is: red or yellow (string)
+  severity: 'red',
+
+  // the ID of the cluster that the issue pertains to (string)
+  clusterId: '1',
+
+  // more verbose info to be displayed in the UI (string)
+  // concatenation of issue title and value
+  message: 'ES is down: Error: Issue error',
+
+  // time that the issue was first noticed in ms (number)
+  firstNoticed: 1234567890,
+
+  // time that the issue was last noticed in ms (number)
+  lastNoticed: 1234567890,
+
+  // time that parliament issued an alert in ms (number)
+  alerted: 1234567890,
+
+  // time that the issue was acknowledged by a user in ms (number)
+  acknowledged: 1234567890,
+
+  // time that the issue will be ignored until in ms (number)
+  // once the current time has passed this value, the issue will alert again
+  ignoreUntil: 1234567890
+}
+```
 
 [vue]: https://vuejs.org/
 [vuecli]: https://cli.vuejs.org/
